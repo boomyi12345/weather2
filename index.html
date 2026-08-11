@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RealtimeIRL Stream Info Overlay</title>
+
+<style>
+@font-face {
+  font-family: 'a2z8';
+  src: local('a2z8'), url('a2z8.ttf') format('truetype'), url('a2z8.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: auto;
+  height: auto;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  font-family: 'a2z8', Arial, Helvetica, sans-serif;
+  color: white;
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0,0,0,.8);
+  display: inline-block;
+}
+
+#overlay {
+  position: relative;
+  width: auto;
+  height: auto;
+  padding: 35px 55px;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.row:last-child {
+  margin-bottom: 0;
+}
+
+.icon {
+  width: 90px;
+  margin-right: 32px;
+  text-align: center;
+  font-size: 60px;
+  line-height: 1;
+  font-weight: 400;
+  flex-shrink: 0;
+}
+
+.value {
+  font-size: 60px;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: -1px;
+}
+
+#weather {
+  font-size: 60px;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: -1.5px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="overlay">
+
+  <!-- TIME + DATE -->
+  <div class="row">
+    <div class="icon">◷</div>
+    <div class="value" id="datetime">--:-- -- | --- --/--/----</div>
+  </div>
+
+  <!-- CURRENT RTIRL LOCATION -->
+  <div class="row">
+    <div class="icon">⌖</div>
+    <div class="value" id="location">Connecting...</div>
+  </div>
+
+  <!-- WEATHER -->
+  <div class="row">
+    <div class="icon">♨</div>
+    <div id="weather">Loading weather...</div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/@rtirl/api@latest/lib/index.min.js"></script>
+
+<script>
+/* =====================================================
+   REALTIMEIRL
+   Pull Key supplied by the user
+   ===================================================== */
+
+const PULL_KEY = "7lvpkkvegwdoxo15";
+
+let latitude = null;
+let longitude = null;
+let timezone = null;
+let lastWeatherLat = null;
+let lastWeatherLon = null;
+
+
+/* =====================================================
+   TIME + DATE
+   ===================================================== */
+
+function updateDateTime() {
+
+  const now = new Date();
+
+  const options = {
+    timeZone: timezone || undefined,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    weekday: "short",
+    month: "numeric",
+    day: "numeric",
+    year: "numeric"
+  };
+
+  try {
+
+    const parts = new Intl.DateTimeFormat(
+      "en-US",
+      options
+    ).formatToParts(now);
+
+    const get = type =>
+      parts.find(p => p.type === type)?.value || "";
+
+    const time =
+      `${get("hour")}:${get("minute")} ${get("dayPeriod")}`;
+
+    const date =
+      `${get("weekday")} ${get("month")}/${get("day")}/${get("year")}`;
+
+    document.getElementById("datetime").textContent =
+      `${time} | ${date}`;
+
+  } catch (error) {
+
+    document.getElementById("datetime").textContent =
+      new Intl.DateTimeFormat("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true
+      }).format(now);
+  }
+}
+
+
+/* =====================================================
+   WEATHER
+   ===================================================== */
+
+async function updateWeather(lat, lon) {
+
+  try {
+
+    const url =
+      `https://api.open-meteo.com/v1/forecast` +
+      `?latitude=${lat}` +
+      `&longitude=${lon}` +
+      `&current=temperature_2m,weather_code` +
+      `&timezone=auto`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    const tempC =
+      Math.round(data.current.temperature_2m);
+
+    const tempF =
+      Math.round(tempC * 9 / 5 + 32);
+
+    timezone = data.timezone;
+
+    const code =
+      data.current.weather_code;
+
+    let condition = "Clear Sky";
+
+    if (code === 0)
+      condition = "Clear Sky";
+    else if ([1,2,3].includes(code))
+      condition = "Partly Cloudy";
+    else if ([45,48].includes(code))
+      condition = "Fog";
+    else if ([51,53,55,56,57].includes(code))
+      condition = "Drizzle";
+    else if ([61,63,65,66,67,80,81,82].includes(code))
+      condition = "Rain";
+    else if ([71,73,75,77,85,86].includes(code))
+      condition = "Snow";
+    else if ([95,96,99].includes(code))
+      condition = "Thunderstorm";
+
+    document.getElementById("weather").textContent =
+      `${condition}, ${tempC}°C | ${tempF}°F`;
+
+    updateDateTime();
+
+  } catch (error) {
+
+    document.getElementById("weather").textContent =
+      "Weather unavailable";
+  }
+}
+
+
+/* =====================================================
+   REVERSE GEOCODING
+   Converts GPS coordinates to "City, Country"
+   ===================================================== */
+
+async function updateCity(lat, lon) {
+
+  try {
+
+    const url =
+      `https://nominatim.openstreetmap.org/reverse` +
+      `?format=jsonv2` +
+      `&lat=${lat}` +
+      `&lon=${lon}` +
+      `&zoom=10` +
+      `&addressdetails=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        "Accept-Language": "en"
+      }
+    });
+
+    const data = await response.json();
+
+    const a = data.address || {};
+
+    const city =
+      a.city ||
+      a.town ||
+      a.municipality ||
+      a.village ||
+      a.county ||
+      "Unknown";
+
+    const country =
+      a.country ||
+      "";
+
+    const locationText = country ? `${city}, ${country}` : city;
+
+    document.getElementById("location").textContent = locationText;
+
+  } catch (error) {
+
+    document.getElementById("location").textContent =
+      "Location unavailable";
+  }
+}
+
+
+/* =====================================================
+   REALTIMEIRL LOCATION
+   ===================================================== */
+
+function handleLocation(position) {
+
+  if (!position) return;
+
+  const lat =
+    Number(position.latitude);
+
+  const lon =
+    Number(position.longitude);
+
+  if (!Number.isFinite(lat) ||
+      !Number.isFinite(lon)) {
+    return;
+  }
+
+  latitude = lat;
+  longitude = lon;
+
+  updateCity(lat, lon);
+
+  if (
+    lastWeatherLat === null ||
+    Math.abs(lastWeatherLat - lat) > 0.001 ||
+    Math.abs(lastWeatherLon - lon) > 0.001
+  ) {
+
+    lastWeatherLat = lat;
+    lastWeatherLon = lon;
+
+    updateWeather(lat, lon);
+  }
+}
+
+
+/* =====================================================
+   START REALTIMEIRL
+   ===================================================== */
+
+try {
+
+  if (
+    typeof RealtimeIRL !== "undefined" &&
+    RealtimeIRL.forPullKey
+  ) {
+
+    RealtimeIRL
+      .forPullKey(PULL_KEY)
+      .addLocationListener(handleLocation);
+
+  } else {
+
+    document.getElementById("location").textContent =
+      "RealtimeIRL unavailable";
+  }
+
+} catch (error) {
+
+  document.getElementById("location").textContent =
+    "RTIRL connection error";
+
+  console.error(error);
+}
+
+
+/* =====================================================
+   CLOCK UPDATES EVERY SECOND
+   ===================================================== */
+
+updateDateTime();
+
+setInterval(updateDateTime, 1000);
+
+
+/* =====================================================
+   WEATHER REFRESH EVERY 5 MINUTES
+   ===================================================== */
+
+setInterval(() => {
+
+  if (
+    latitude !== null &&
+    longitude !== null
+  ) {
+    updateWeather(latitude, longitude);
+  }
+
+}, 5 * 60 * 1000);
+
+</script>
+
+</body>
+</html>
