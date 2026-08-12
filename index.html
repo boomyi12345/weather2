@@ -8,12 +8,16 @@
 <style>
 @font-face {
   font-family: 'a2z8';
-  src: local('a2z8'), url('a2z8.ttf') format('truetype'), url('a2z8.woff') format('woff');
+  src: local('a2z8'),
+       url('a2z8.ttf') format('truetype'),
+       url('a2z8.woff') format('woff');
   font-weight: normal;
   font-style: normal;
 }
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 html, body {
   margin: 0;
@@ -53,11 +57,12 @@ body {
   margin-bottom: 0;
 }
 
+/* 기호 크게 */
 .icon {
   width: 90px;
   margin-right: 32px;
   text-align: center;
-  font-size: 60px;
+  font-size: 100px;
   line-height: 1;
   font-weight: 400;
   flex-shrink: 0;
@@ -86,19 +91,25 @@ body {
   <!-- TIME + DATE -->
   <div class="row">
     <div class="icon">◷</div>
-    <div class="value" id="datetime">--:-- -- | --- --/--/----</div>
+    <div class="value" id="datetime">
+      --:-- -- | --- --/--/----
+    </div>
   </div>
 
   <!-- CURRENT RTIRL LOCATION -->
   <div class="row">
     <div class="icon">⌖</div>
-    <div class="value" id="location">Connecting...</div>
+    <div class="value" id="location">
+      Connecting...
+    </div>
   </div>
 
   <!-- WEATHER -->
   <div class="row">
     <div class="icon">♨</div>
-    <div id="weather">Loading weather...</div>
+    <div id="weather">
+      Loading weather...
+    </div>
   </div>
 
 </div>
@@ -106,9 +117,9 @@ body {
 <script src="https://unpkg.com/@rtirl/api@latest/lib/index.min.js"></script>
 
 <script>
+
 /* =====================================================
    REALTIMEIRL
-   Pull Key supplied by the user
    ===================================================== */
 
 const PULL_KEY = "7lvpkkvegwdoxo15";
@@ -116,6 +127,7 @@ const PULL_KEY = "7lvpkkvegwdoxo15";
 let latitude = null;
 let longitude = null;
 let timezone = null;
+
 let lastWeatherLat = null;
 let lastWeatherLon = null;
 
@@ -203,16 +215,22 @@ async function updateWeather(lat, lon) {
 
     if (code === 0)
       condition = "Clear Sky";
+
     else if ([1,2,3].includes(code))
       condition = "Partly Cloudy";
+
     else if ([45,48].includes(code))
       condition = "Fog";
+
     else if ([51,53,55,56,57].includes(code))
       condition = "Drizzle";
+
     else if ([61,63,65,66,67,80,81,82].includes(code))
       condition = "Rain";
+
     else if ([71,73,75,77,85,86].includes(code))
       condition = "Snow";
+
     else if ([95,96,99].includes(code))
       condition = "Thunderstorm";
 
@@ -231,7 +249,7 @@ async function updateWeather(lat, lon) {
 
 /* =====================================================
    REVERSE GEOCODING
-   Converts GPS coordinates to "City, Country"
+   City, Country
    ===================================================== */
 
 async function updateCity(lat, lon) {
@@ -265,12 +283,15 @@ async function updateCity(lat, lon) {
       "Unknown";
 
     const country =
-      a.country ||
-      "";
+      a.country || "";
 
-    const locationText = country ? `${city}, ${country}` : city;
+    const locationText =
+      country
+        ? `${city}, ${country}`
+        : city;
 
-    document.getElementById("location").textContent = locationText;
+    document.getElementById("location").textContent =
+      locationText;
 
   } catch (error) {
 
@@ -294,8 +315,10 @@ function handleLocation(position) {
   const lon =
     Number(position.longitude);
 
-  if (!Number.isFinite(lat) ||
-      !Number.isFinite(lon)) {
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon)
+  ) {
     return;
   }
 
@@ -354,7 +377,10 @@ try {
 
 updateDateTime();
 
-setInterval(updateDateTime, 1000);
+setInterval(
+  updateDateTime,
+  1000
+);
 
 
 /* =====================================================
@@ -367,7 +393,11 @@ setInterval(() => {
     latitude !== null &&
     longitude !== null
   ) {
-    updateWeather(latitude, longitude);
+
+    updateWeather(
+      latitude,
+      longitude
+    );
   }
 
 }, 5 * 60 * 1000);
